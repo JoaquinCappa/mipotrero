@@ -1,0 +1,42 @@
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            currentUserEmail = user.email;
+            
+            // Obtener el nombre del usuario de Firestore
+            const userDoc = await getDoc(doc(db, "users", currentUserId));
+            currentUserName = userDoc.exists() ? userDoc.data().nombre : user.email;
+            
+            toggleAppView(true);
+        } else {
+            currentUserId = null;
+            currentUserName = null;
+            currentUserEmail = null;
+            try { await fetch('/api/v1/auth/sessionLogout', { method: 'POST', credentials: 'include' }); } catch {}
+            toggleAppView(false);
+        }
+    });
+
+    // --- GESTIÓN DE EQUIPOS (LLAMANDO A NODE.JS) ---
+
+    // Función para Crear Equipo (Llama a Cloud Function)
+    const handleCreateTeam = async () => {
+        if (!auth.currentUser || !currentUserId) {
+            showGlobalMessage('Debes iniciar sesión para crear un equipo.', 'info');
+            return;
+        }
+        const teamName = prompt("Ingresa el nombre del nuevo equipo:");
+        if (!teamName || teamName.trim() === "") return;
+
+        try {
+            const result = await callWithAuthRetry(createTeamCallable, { teamName });
+            showGlobalMessage(result.data.message, 'exito');
+            loadTeamsForCreation();
+            loadUserTeamsForInvitations();
+        } catch (error) {
+            console.error("Error al llamar createTeam:", error);
+            // Manejo específico si perdió autenticación (401)
+            if (error.code === 'functions/unauthenticated' || /autenticaci\u00f3n|unauth/i.test(String(error.message))) {
+                showGlobalMessage('Tu sesión expiró. Vuelve a iniciar sesión.', 'info');
+                try { await signOut(auth); } catch {}
+

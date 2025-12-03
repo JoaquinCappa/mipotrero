@@ -1,0 +1,250 @@
+            loadTeamsForCreation();
+            loadUserTeamsForInvitations();
+        } catch (error) {
+            console.error("Error al llamar createTeam:", error);
+            // Manejo específico si perdió autenticación (401)
+            if (error.code === 'functions/unauthenticated' || /autenticaci\u00f3n|unauth/i.test(String(error.message))) {
+                showGlobalMessage('Tu sesión expiró. Vuelve a iniciar sesión.', 'info');
+                try { await signOut(auth); } catch {}
+            } else {
+                const msg = error.details?.message || error.message;
+                showGlobalMessage(`Error al crear equipo: ${msg}`, 'error');
+            }
+        }
+    };
+    
+    // Helper: crear equipo con reintento si falta token
+    const createTeamWithRetry = async (teamName) => {
+        // intento normal
+        try {
+            await auth.currentUser?.getIdToken(false);
+            const res = await createTeamCallable({ teamName });
+            return res.data;
+        } catch (err) {
+            // reintento por token/unauth
+            if (err.code === 'functions/unauthenticated' || /autenticaci\u00f3n|unauth/i.test(String(err.message))) {
+                await auth.currentUser?.getIdToken(true);
+                const res = await createTeamCallable({ teamName });
+                return res.data;
+            }
+            throw err;
+        }
+    };
+
+    // Versión segura del prompt (por si aún usas el botón legado)
+    const handleCreateTeamSafe = async () => {
+        if (!auth.currentUser || !currentUserId) {
+            showGlobalMessage('Debes iniciar sesión para crear un equipo.', 'info');
+            return;
+        }
+        const teamName = prompt("Ingresa el nombre del nuevo equipo:");
+        if (!teamName || teamName.trim() === '') return;
+        try {
+            const data = await createTeamWithRetry(teamName.trim());
+            showGlobalMessage(data.message || 'Equipo creado.', 'exito');
+            loadTeamsForCreation?.();
+            loadUserTeamsForInvitations?.();
+        } catch (err) {
+            const msg = err.details?.message || err.message;
+            showGlobalMessage(`Error al crear equipo: ${msg}`, 'error');
+        }
+    };
+
+    // Asignar listeners a los botones de Crear Equipo (usa versión segura)
+    document.getElementById('btn-crear-equipo')?.addEventListener('click', handleCreateTeamSafe);
+    document.getElementById('btn-crear-equipo-cuenta')?.addEventListener('click', handleCreateTeamSafe);
+
+    // Formulario inline para crear equipo dentro de la página (sin alert)
+    const handleCreateTeamSubmit = async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('create-team-name');
+        const feedback = document.getElementById('create-team-feedback');
+        const teamName = nameInput?.value?.trim();
+
+        if (!auth.currentUser || !currentUserId) {
+            showGlobalMessage('Debes iniciar sesión para crear un equipo.', 'info');
+            return;
+        }
+        if (!teamName) {
+            if (feedback) {
+                feedback.textContent = 'Ingresa un nombre válido para el equipo.';
+                feedback.className = 'mensaje mensaje-error';
+                feedback.classList.remove('hidden');
+            } else {
+                showGlobalMessage('Ingresa un nombre válido para el equipo.', 'error');
+            }
+            return;
+        }
+
+        try {
+            await auth.currentUser.getIdToken(false); // asegura token
+            const result = await createTeamCallable({ teamName });
+            if (nameInput) nameInput.value = '';
+            if (feedback) {
+                feedback.textContent = result.data.message || 'Equipo creado.';
+                feedback.className = 'mensaje mensaje-exito';
+                feedback.classList.remove('hidden');
+            } else {
+                showGlobalMessage(result.data.message || 'Equipo creado.', 'exito');
+            }
+            loadTeamsForCreation?.();
+            loadUserTeamsForInvitations?.();
+        } catch (error) {
+            console.error('Error al llamar createTeam:', error);
+            if (error.code === 'functions/unauthenticated' || /autenticaci\u00f3n|unauth/i.test(String(error.message))) {
+                showGlobalMessage('Tu sesión expiró. Vuelve a iniciar sesión.', 'info');
+                try { await signOut(auth); } catch {}
+            } else {
+                const msg = error.details?.message || error.message;
+                showGlobalMessage(`Error al crear equipo: ${msg}`, 'error');
+            }
+        }
+    };
+
+    // Handler seguro para el formulario inline
+    const handleCreateTeamSafeSubmit = async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('create-team-name');
+        const feedback = document.getElementById('create-team-feedback');
+        const teamName = nameInput?.value?.trim();
+        if (!auth.currentUser || !currentUserId) {
+            showGlobalMessage('Debes iniciar sesión para crear un equipo.', 'info');
+            return;
+        }
+        if (!teamName) {
+            if (feedback) {
+                feedback.textContent = 'Ingresa un nombre válido para el equipo.';
+                feedback.className = 'mensaje mensaje-error';
+                feedback.classList.remove('hidden');
+            } else {
+                showGlobalMessage('Ingresa un nombre válido para el equipo.', 'error');
+            }
+            return;
+        }
+        try {
+            const data = await createTeamWithRetry(teamName);
+            if (nameInput) nameInput.value = '';
+            if (feedback) {
+                feedback.textContent = data.message || 'Equipo creado.';
+                feedback.className = 'mensaje mensaje-exito';
+                feedback.classList.remove('hidden');
+            } else {
+                showGlobalMessage(data.message || 'Equipo creado.', 'exito');
+            }
+            loadTeamsForCreation?.();
+            loadUserTeamsForInvitations?.();
+        } catch (err) {
+            const msg = err.details?.message || err.message;
+            showGlobalMessage(`Error al crear equipo: ${msg}`, 'error');
+        }
+    };
+
+    // Reemplaza el listener anterior por la versión segura
+    const createTeamFormEl = document.getElementById('create-team-form');
+    if (createTeamFormEl) {
+        createTeamFormEl.addEventListener('submit', handleCreateTeamSafeSubmit);
+    }
+    
+    // Carga los equipos del usuario para la sección Cuenta (y gestionar invitaciones)
+    const loadUserTeamsForInvitations = async () => {
+        const listElement = document.getElementById('user-teams-list');
+        if (!listElement) return;
+        listElement.innerHTML = 'Cargando tus equipos...';
+        if (!currentUserId) return;
+
+        try {
+            const userDoc = await getDoc(doc(db, "users", currentUserId));
+            const teamIds = userDoc.data()?.teams || [];
+
+            if (teamIds.length === 0) {
+                listElement.innerHTML = '<p>No eres miembro de ningún equipo.</p>';
+                return;
+            }
+
+            const teamPromises = teamIds.map(id => getDoc(doc(db, "teams", id)));
+            const teamDocs = await Promise.all(teamPromises);
+
+            let html = '';
+            teamDocs.forEach(teamDoc => {
+                if (teamDoc.exists()) {
+                    const team = teamDoc.data();
+                    const membersHtml = (team.memberNames || []).map(name => `<li>${name}</li>`).join('');
+
+                    html += `
+                        <div class="equipo-card">
+                            <h4>${team.name} (ID: ${teamDoc.id})</h4>
+                            <p>Miembros (${team.memberNames.length}):</p>
+                            <ul class="jugadores-list">${membersHtml}</ul>
+                            <button data-team-id="${teamDoc.id}" data-team-name="${team.name}" class="btn-invitar">Invitar Jugador</button>
+                        </div>
+                    `;
+                }
+            });
+            listElement.innerHTML = html;
+            
+            // Adjuntar listeners de invitación
+            document.querySelectorAll('.btn-invitar').forEach(btn => {
+                btn.onclick = (e) => handleInvitePlayer(e.target.dataset.teamId, e.target.dataset.teamName);
+            });
+
+        } catch (error) {
+            console.error("Error cargando equipos para invitaciones:", error);
+            listElement.innerHTML = '<p>Error al cargar tus equipos.</p>';
+        }
+    };
+    
+    // Función para Invitar Jugador (Llama a Cloud Function)
+    const handleInvitePlayer = async (teamId, teamName) => {
+        const playerEmail = prompt(`Ingresa el email del jugador para invitar a ${teamName}:`);
+        if (!playerEmail || playerEmail.trim() === "") return;
+
+        try {
+            const result = await invitePlayerCallable({ teamId, teamName, playerEmail });
+            showGlobalMessage(result.data.message, 'exito');
+        } catch (error) {
+            console.error("Error al llamar invitePlayer:", error);
+            const msg = error.details?.message || error.message;
+            showGlobalMessage(`Error al invitar: ${msg}`, 'error');
+        }
+    };
+
+
+    // --- GESTIÓN DE PARTIDOS (LLAMANDO A NODE.JS Y LEYENDO DESDE CLIENTE) ---
+    
+    // Carga los equipos del usuario en el selector de Crear Partido. (Lectura de cliente)
+    const loadTeamsForCreation = async () => {
+        const select = document.getElementById('crearPartidoConEquipo');
+        if (!select) return;
+        select.innerHTML = '<option value="">Selecciona tu equipo</option>';
+        if (!currentUserId) return;
+
+        try {
+            const userDoc = await getDoc(doc(db, "users", currentUserId));
+            const teamIds = userDoc.data()?.teams || [];
+
+            if (teamIds.length === 0) {
+                select.innerHTML = '<option value="" disabled>Debes crear un equipo primero</option>';
+                return;
+            }
+
+            const teamPromises = teamIds.map(id => getDoc(doc(db, "teams", id)));
+            const teamDocs = await Promise.all(teamPromises);
+
+            teamDocs.forEach(teamDoc => {
+                if (teamDoc.exists()) {
+                    const team = teamDoc.data();
+                    // Solo si el usuario es miembro de un equipo, lo puede seleccionar para jugar
+                    if (team.members.includes(currentUserId)) {
+                        const option = document.createElement('option');
+                        option.value = teamDoc.id;
+                        option.textContent = `${team.name} (${team.memberNames.length} miembros)`;
+                        select.appendChild(option);
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error("Error cargando equipos para creación de partido:", error);
+        }
+    };
+

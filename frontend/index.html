@@ -1,0 +1,549 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#1b4a35">
+  <title>Mi Potrero</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/app-icon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="./icons/app-icon-16.png" sizes="16x16" type="image/png">
+  <link rel="icon" href="./icons/app-icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/app-icon-180.png">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Protest+Strike&display=swap" rel="stylesheet">
+  <script>
+    // Configuración de Firebase inyectada en el cliente (no visible)
+    window.__firebase_config = JSON.stringify({
+      apiKey: "AIzaSyBL5df93NYGv5kYoXREGimdY9HSvF5v-To",
+      authDomain: "mi-potrero-82.firebaseapp.com",
+      projectId: "mi-potrero-82",
+      storageBucket: "mi-potrero-82.firebasestorage.app",
+      messagingSenderId: "1076957719235",
+      appId: "1:1076957719235:web:8280c3d168a09948089076"
+    });
+    window.__app_id = 'mi-potrero-82';
+    window.__api_base = 'https://api-3cjz3n6ona-uc.a.run.app/api/v1';
+    window.__fcm_vapid_key = "BC9t6eKxXniMpLi75kaR_WzF5W7_-eCrxKmcQPvjNHAeK2d5ajNOTEKOce-1MVI-5a_oiNWugCzhvFdBkOZ_F_s";
+    window.__admin_emails = ["mipotrerooficial@gmail.com"];
+
+    // Si registras un dominio personalizado para las callable functions, asigna window.__functions_domain con esa URL base
+    // Opcional: habilita App Check con reCAPTCHA v3 si tienes tu site key
+    // Ve a Firebase Console → App Check → Web → reCAPTCHA v3 y pega la clave aquí
+    // window.__app_check_site_key = 'TU_RECAPTCHA_V3_SITE_KEY';
+  </script>
+</head>
+<body>
+  <button id="mobile-menu-toggle" class="mobile-menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Abrir menú principal">
+    <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+    <span>Menú</span>
+  </button>
+  <div class="layout">
+    <div id="mobile-sidebar-backdrop" class="mobile-sidebar-backdrop hidden" aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar" aria-label="Menú principal">
+      <div class="sidebar-scroll">
+        <button class="mobile-menu-close" id="mobile-menu-close" type="button" aria-label="Cerrar menú de navegación">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+        <div class="logo-title">
+          <img class="logo-icon" src="https://i.imgur.com/bMT1rDc.jpeg" alt="Logo">
+          <h1>MI<br>POTRERO</h1>
+        </div>
+
+        <div id="phone-verification-blocker" class="phone-blocker hidden" aria-live="assertive">
+          <div class="phone-blocker-content">
+            <h3>Verificá tu teléfono</h3>
+            <p>Necesitamos confirmar tu número para habilitar todas las funciones de Mi Potrero.</p>
+            <button type="button" class="btn-secundario" id="phone-blocker-open">Verificar ahora</button>
+          </div>
+        </div>
+        <p class="subtitulo">La red social del fútbol</p>
+        <p class="sidebar-claim">Gestioná turnos, invitaciones y pagos desde un solo panel, estés donde estés.</p>
+        <nav class="sidebar-nav" aria-label="Navegación principal">
+          <ul class="sidebar-menu">
+            <li>
+              <a href="#explorar" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <span class="nav-label">Explorar</span>
+              </a>
+            </li>
+            <li>
+              <a href="#crear" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                <span class="nav-label">Crear</span>
+              </a>
+            </li>
+            <li>
+              <a href="#equipos" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+                <span class="nav-label">Equipos</span>
+              </a>
+            </li>
+            <li>
+              <a href="#partidos" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">sports_soccer</span>
+                <span class="nav-label">Partidos</span>
+              </a>
+            </li>
+            <li>
+              <a href="#cuenta" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                <span class="nav-label">Cuenta</span>
+              </a>
+            </li>
+            <li>
+              <a href="#torneo" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">emoji_events</span>
+                <span class="nav-label">Torneo</span>
+              </a>
+            </li>
+            <li>
+              <a href="#notificaciones" class="nav-link">
+                <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                <span class="nav-label">Invitaciones</span>
+                <span id="notification-count" class="notification-badge" aria-live="polite">0</span>
+              </a>
+            </li>
+          </ul>
+          <button id="btn-logout" class="nav-link nav-link-logout hidden" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+            <span class="nav-label">Cerrar sesión</span>
+          </button>
+        </nav>
+        <div class="imagen-portada" aria-hidden="true">
+          <img class="imagen-portada-img" src="https://i.imgur.com/bMT1rDc.jpeg" alt="Logo" loading="lazy">
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div id="auth-container" class="auth-container">
+        <form id="register-form" class="auth-form">
+          <h2>Registro</h2>
+          <input type="text" id="reg-nombre" placeholder="Nombre completo" required>
+          <input type="email" id="reg-email" placeholder="Correo electrónico" required>
+          <input type="tel" id="reg-phone" placeholder="Número de teléfono (agregamos el prefijo por vos)" required>
+          <input type="number" id="reg-edad" placeholder="Edad" min="12" max="70" required>
+          <input type="password" id="reg-password" placeholder="Contraseña" required>
+          <button type="submit">Registrarse</button>
+          <p>¿Ya tienes cuenta? <a href="#" id="show-login">Inicia sesión</a></p>
+        </form>
+        <form id="login-form" class="auth-form hidden">
+          <h2>Iniciar sesión</h2>
+          <input type="email" id="login-email" placeholder="Correo electrónico" required>
+          <input type="password" id="login-password" placeholder="Contraseña" required>
+          <button type="submit">Entrar</button>
+          <p>¿No tienes cuenta? <a href="#" id="show-register">Regístrate</a></p>
+        </form>
+        <div class="oauth-separator">
+          <span></span>
+          <p>o continua con</p>
+          <span></span>
+        </div>
+        <button type="button" id="google-signin" class="google-button">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+          <span>Continuar con Google</span>
+        </button>
+      </div>
+
+      <div id="content-container" class="hidden">
+        <section id="explorar-section" class="content-section">
+          <div class="explorar-container">
+            <div class="explorar-left-column">
+              <h2 class="explorar-title">CONOCÉ MI<br>POTRERO</h2>
+              <p class="explorar-subtitle">La comunidad futbolera que une pasión y tecnología en un mismo lugar.</p>
+            </div>
+            <div class="explorar-center-column">
+              <div class="Conocenos">
+                  <p>Somos Mi Potrero, un equipo de futbolistas y emprendedores mendocinos que entendió un gran desafío: el fútbol amateur, aunque lleno de pasión, carecía de herramientas para su organización y crecimiento. Nacimos para simplificar lo complejo y potenciar lo que amamos.</p>
+                  <p>Nuestra propuesta es una plataforma sport tech pensada para mucho más que gestionar partidos. Es una red social del fútbol donde la tecnología acompaña la pasión: facilita reservas, conecta jugadores y ofrece datos para un juego más inteligente y divertido. Creemos en la transparencia, la innovación y el fair play como pilares de una comunidad sólida y en constante evolución.</p>
+              </div>
+            </div>
+            <div class="explorar-right-column">
+              <div class="imagen-portada">
+                <img class="imagen-portada-img" src="https://i.imgur.com/bMT1rDc.jpeg" alt="Logo">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crear-section" class="content-section hidden">
+
+          <h2>Crear Partido</h2>
+
+          <form id="crear-partido-form">
+
+            <label for="crearPartidoConEquipo">Crear partido con mi equipo:</label>
+
+            <select id="crearPartidoConEquipo" required>
+
+              <option value="">Selecciona tu equipo</option>
+
+            </select><br /><br />
+
+            <label for="fecha">Fecha y hora:</label>
+
+            <input type="datetime-local" id="fecha" required /><br /><br />
+
+            <label for="tipoFutbol">Tipo de futbol:</label>
+
+            <select id="tipoFutbol" required>
+
+              <option value="">Selecciona el tipo de futbol</option>
+
+              <option value="Futbol 7">Futbol 7</option>
+
+            </select><br /><br />
+
+            <div id="lugar-partido-wrapper" class="hidden">
+
+              <label for="lugar-partido">Selecciona la cancha:</label>
+
+              <select id="lugar-partido">
+
+                <option value="">Elige una cancha disponible</option>
+
+              </select>
+
+              <p id="lugar-partido-detalle" class="pitch-detail hidden"></p>
+
+            </div><br />
+
+            <button id="btnCrear" type="submit">Crear partido</button>
+
+          </form>
+
+          <div id="mensaje-crear" class="mensaje"></div>
+
+
+
+          <div class="crear-equipo-card">
+
+            <h3>Crear Equipo</h3>
+
+            <p>Dale identidad a tu equipo: descripción, color y escudo.</p>
+
+            <form id="create-team-form" class="team-form" autocomplete="off">
+
+              <label for="create-team-name">Nombre del equipo</label>
+
+              <input type="text" id="create-team-name" placeholder="Ej: Potreros FC" required />
+
+
+
+              <label for="create-team-description">Descripción breve</label>
+
+              <textarea id="create-team-description" maxlength="400" placeholder="Contanos cómo juega tu equipo" required></textarea>
+
+
+
+              <label for="create-team-color-name">Color de remera</label>
+
+              <input type="text" id="create-team-color-name" placeholder="Ej: Verde y dorado" required />
+
+
+
+              <label for="create-team-color">Selecciona el tono principal</label>
+
+              <div class="color-picker-control">
+
+                <input type="color" id="create-team-color" value="#12643a" />
+
+                <span id="create-team-color-preview">#12643a</span>
+
+              </div>
+
+
+
+              <label for="create-team-shield">Escudo o foto del equipo</label>
+
+              <input type="file" id="create-team-shield" accept="image/*" />
+
+              <small class="form-hint">Formatos JPG o PNG, max 2 MB.</small>
+
+
+
+              <button type="submit" class="btn-secundario w-100">Crear equipo</button>
+
+            </form>
+
+            <div id="create-team-feedback" class="mensaje hidden"></div>
+
+          </div>
+
+        </section>
+
+        <section id="equipos-section" class="content-section hidden">
+
+          <h2>Equipos de la comunidad</h2>
+
+          <p>Descubre quienes ya juegan y solicita unirte.</p>
+
+          <div id="teams-directory" class="teams-grid">
+
+            <p>Cargando equipos...</p>
+
+          </div>
+
+        </section>
+
+
+
+        <section id="partidos-section" class="content-section hidden">
+          <div class="section-heading">
+            <p class="section-eyebrow">Agenda inteligente</p>
+            <h2>Partidos y disponibilidad</h2>
+            <p>Elegí dónde sumarte, consultá cupos y seguí el estado de cada encuentro en tiempo real.</p>
+          </div>
+          <div class="matches-grid">
+            <article class="match-panel">
+              <header class="panel-head">
+                <h3>Partidos disponibles</h3>
+                <p>Sumate o invitá a tu equipo en los cupos que siguen abiertos.</p>
+              </header>
+              <div id="lista-partidos" class="panel-body"></div>
+            </article>
+            <article class="match-panel">
+              <header class="panel-head">
+                <h3>Mis partidos</h3>
+                <p>Seguimiento de los encuentros que organizás o confirmaste.</p>
+              </header>
+              <div id="mis-partidos" class="panel-body"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Sección de Cuenta visible con los IDs esperados por la app -->
+        <section id="cuenta-section" class="content-section hidden">
+          <div class="section-heading">
+            <p class="section-eyebrow">Tu espacio</p>
+            <h2>Mi cuenta y perfil</h2>
+            <p>Actualizá tus datos y mostrales a los demás cómo jugás antes de llegar a la cancha.</p>
+          </div>
+          <div class="profile-overview">
+            <article class="profile-card">
+              <div class="profile-avatar">
+                <img id="profile-photo-preview" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%22160%22%20height%3D%22160%22%20viewBox%3D%220%200%20160%20160%22%3E%3Crect%20width%3D%22160%22%20height%3D%22160%22%20fill%3D%22%2325633c%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2255%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22Poppins%2C%20sans-serif%22%20font-size%3D%2224%22%20fill%3D%22%23ffffff%22%3EJugador%3C/text%3E%3C/svg%3E" alt="Foto de perfil">
+              </div>
+              <ul class="profile-data">
+                <li>
+                  <span>Nombre</span>
+                  <div class="profile-name-row">
+                    <span id="user-name-display">-</span>
+                    <span id="user-age-display" class="age-pill hidden">-</span>
+                  </div>
+                </li>
+                <li>
+                  <span>Email</span>
+                  <span id="user-email-display">-</span>
+                </li>
+                <li>
+                  <span>ID</span>
+                  <span id="user-id-display">-</span>
+                </li>
+                <li>
+                  <span>Teléfono</span>
+                  <span id="user-phone-display" class="phone-status" data-status="missing">Sin registrar</span>
+                </li>
+                <li>
+                  <span>Posición</span>
+                  <span id="profile-position-display">Sin definir</span>
+                </li>
+                <li>
+                  <span>Descripción</span>
+                  <span id="profile-description-display">Completá tu perfil para que otros sepan cómo jugás.</span>
+                </li>
+              </ul>
+            </article>
+            <div class="profile-phone-actions">
+              <button type="button" class="btn-secundario" id="open-phone-modal">Verificar teléfono</button>
+              <small class="form-hint">Usamos SMS para validar y evitar duplicados.</small>
+            </div>
+            <form id="profile-extra-form" class="profile-form">
+              <h3>Completá mi perfil futbolero</h3>
+              <div class="form-field">
+                <label for="profile-age">Edad</label>
+                <input type="number" id="profile-age" min="12" max="70" placeholder="Ej: 24">
+              </div>
+              <div class="form-field">
+                <label for="profile-position">Posición principal</label>
+                <select id="profile-position">
+                  <option value="">Seleccioná una posición</option>
+                  <option value="Arquero">Arquero</option>
+                  <option value="Defensa central">Defensa central</option>
+                  <option value="Lateral izquierdo">Lateral izquierdo</option>
+                  <option value="Lateral derecho">Lateral derecho</option>
+                  <option value="Volante defensivo">Volante defensivo</option>
+                  <option value="Volante mixto">Volante mixto</option>
+                  <option value="Volante creativo">Volante creativo</option>
+                  <option value="Extremo">Extremo</option>
+                  <option value="Delantero">Delantero</option>
+                  <option value="Otros">Otros</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="profile-description">Describí tu juego</label>
+                <textarea id="profile-description" maxlength="240" placeholder="Ej: Volante mixto con buen remate."></textarea>
+              </div>
+              <div class="form-field file-field">
+                <label for="profile-photo-input">Foto de perfil</label>
+                <input type="file" id="profile-photo-input" accept="image/*" />
+                <small class="form-hint">Usá una imagen cuadrada para que se vea perfecta.</small>
+              </div>
+              <button type="submit" class="btn-secundario w-100">Guardar perfil</button>
+              <div id="profile-form-feedback" class="mensaje hidden"></div>
+            </form>
+          </div>
+          <div class="profile-teams">
+            <div class="profile-teams-card">
+              <div class="teams-head">
+                <h3>Mis equipos</h3>
+                <p>Creá nuevos equipos desde la sección Crear.</p>
+              </div>
+              <div id="user-teams-list">Cargando equipos...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="torneo-section" class="content-section hidden">
+          <h2>Página de Torneos (En Desarrollo)</h2>
+          <p>¡Pronto podrás organizar y unirte a torneos!</p>
+        </section>
+        <section id="notificaciones-section" class="content-section hidden">
+          <div class="notifications-pref">
+            <div>
+              <h3>Notificaciones push</h3>
+              <p class="form-hint">Activalas para recibir invitaciones y respuestas en tu celu.</p>
+            </div>
+            <div class="pref-actions">
+              <button id="btn-enable-notifications" type="button">Activar notificaciones</button>
+              <span id="notification-permission-label" class="permission-label">Sin activar</span>
+            </div>
+          </div>
+          <div class="notifications-wrapper">
+            <div class="notifications-column">
+              <h2>Mis invitaciones</h2>
+              <div id="invitaciones-list">
+                <p>Cargando invitaciones...</p>
+              </div>
+            </div>
+            <div class="notifications-column">
+              <h2>Solicitudes para mis equipos</h2>
+              <p class="form-hint">Aquí verás las solicitudes de jugadores que quieren unirse a tus equipos.</p>
+              <div id="join-requests-list">
+                <p>Cargando solicitudes...</p>
+              </div>
+            </div>
+            <div class="notifications-column">
+              <h2>Solicitudes a mis partidos</h2>
+              <p class="form-hint">Jugadores sin equipo pueden pedirte un lugar. Decidí a quién sumas.</p>
+              <div id="individual-requests-list">
+                <p>Cargando solicitudes...</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="global-mensaje" class="mensaje hidden"></div>
+    </main>
+  </div>
+  <footer class="site-footer">
+    <div class="footer-content">
+      <div class="footer-copy">
+        <p class="footer-eyebrow">Contacto directo</p>
+        <h3>¿Listo para sumarte?</h3>
+        <p class="footer-placeholder">Coordinamos partidos, activaciones y soporte para clubes y equipos independientes.</p>
+        <p class="footer-claim">Respondemos en menos de 24 horas hábiles.</p>
+      </div>
+      <ul class="footer-contact-list">
+        <li class="footer-contact-item contact-gmail">
+          <span class="footer-contact-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation">
+              <path fill="#EA4335" d="M20 18H4a2 2 0 0 1-2-2V8.5l10 5.625L22 8.5V16a2 2 0 0 1-2 2Z"/>
+              <path fill="#C5221F" d="m12 12.5 10-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v.5l10 6Z"/>
+            </svg>
+          </span>
+          <div class="footer-contact-text">
+            <span class="contact-label">Correo</span>
+            <a href="mailto:mipotrero.oficial@gmail.com">mipotrero.oficial@gmail.com</a>
+            <span class="contact-note">Escribinos para propuestas, soporte o prensa.</span>
+          </div>
+        </li>
+        <li class="footer-contact-item contact-instagram">
+          <span class="footer-contact-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation">
+              <defs>
+                <linearGradient id="igGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#F58529"/>
+                  <stop offset="50%" stop-color="#DD2A7B"/>
+                  <stop offset="100%" stop-color="#8134AF"/>
+                </linearGradient>
+              </defs>
+              <path fill="url(#igGradient)" d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H7Zm5 3.5A3.5 3.5 0 1 1 8.5 12 3.5 3.5 0 0 1 12 8.5Zm0 2A1.5 1.5 0 1 0 13.5 12 1.5 1.5 0 0 0 12 10.5Zm5.25-3.5a1 1 0 1 1-.999.999 1 1 0 0 1 1-.999Z"/>
+            </svg>
+          </span>
+          <div class="footer-contact-text">
+            <span class="contact-label">Instagram</span>
+            <a href="https://www.instagram.com/mipotrero.oficial" target="_blank" rel="noopener">mipotrero.oficial</a>
+            <span class="contact-note">Novedades diarias y cobertura de partidos.</span>
+          </div>
+        </li>
+        <li class="footer-contact-item contact-whatsapp">
+          <span class="footer-contact-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation">
+              <path fill="#25D366" d="M12 2a9.93 9.93 0 0 0-8.51 15.12L3 22l4.99-1.31A9.93 9.93 0 1 0 12 2Z"/>
+              <path fill="#FFF" d="M18.1 13.73c-.29-.15-1.7-.84-1.96-.94s-.45-.14-.64.15-.74.94-.91 1.14-.34.22-.63.07a7.93 7.93 0 0 1-3.86-3.35c-.29-.5.29-.47.84-1.55.09-.19 0-.35-.05-.5s-.64-1.55-.88-2.13c-.23-.55-.47-.48-.64-.48h-.55a1.05 1.05 0 0 0-.75.35 3.17 3.17 0 0 0-1 2.36 5.5 5.5 0 0 0 1.2 2.92 12.47 12.47 0 0 0 4.8 4 5.5 5.5 0 0 0 3.38.7 2.88 2.88 0 0 0 1.89-1.35 2.3 2.3 0 0 0 .16-1.35c-.07-.1-.25-.17-.54-.32Z"/>
+            </svg>
+          </span>
+          <div class="footer-contact-text">
+            <span class="contact-label">WhatsApp</span>
+            <a href="https://wa.me/5492615079057" target="_blank" rel="noopener">261 507-9057</a>
+            <span class="contact-note">Coordiná partidos o hacé consultas express.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </footer>
+  <div id="phone-verification-modal" class="phone-modal hidden">
+    <div class="phone-modal-content">
+      <h3>Verificar teléfono</h3>
+      <p>Ingresá tu número y le agregamos el prefijo automáticamente (ej: 261 507 9057).</p>
+      <input type="tel" id="phone-modal-number" placeholder="Ej: 261 507 9057" required>
+      <button type="button" id="phone-modal-send">Enviar código</button>
+      <div id="phone-modal-code-section" class="hidden">
+        <input type="text" id="phone-modal-code" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6">
+        <button type="button" id="phone-modal-confirm">Confirmar código</button>
+      </div>
+      <button type="button" id="phone-modal-cancel" class="btn-secundario phone-modal-cancel">Cancelar</button>
+      <div id="phone-modal-message" class="mensaje hidden"></div>
+    </div>
+    <div id="recaptcha-container"></div>
+  </div>
+  <div id="privacy-banner" class="privacy-banner hidden" role="dialog" aria-live="polite">
+    <div class="privacy-text">
+      <h4>Privacidad y cookies</h4>
+      <p>Usamos cookies para guardar tu sesión y mejorar la experiencia. Revisá y aceptá para continuar.</p>
+    </div>
+    <div class="privacy-actions">
+      <button id="btn-accept-privacy" type="button">Aceptar</button>
+      <button id="btn-reject-privacy" type="button" class="btn-secundario">Configurar luego</button>
+    </div>
+  </div>
+  <script type="module" src="./app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        const swUrl = `./service-worker.js?v=${Date.now()}`;
+        navigator.serviceWorker.register(swUrl, { updateViaCache: "none" }).catch((err) => {
+          console.warn("No se pudo registrar el service worker:", err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

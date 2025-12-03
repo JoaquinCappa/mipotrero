@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isCurrentUser(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function authEmail() {
+      return isAuthenticated() && ('email' in request.auth.token)
+        ? request.auth.token.email
+        : '';
+    }
+
+    // Nueva colección de usuarios (utilizada por el frontend)
+    match /users/{uid} {
+      allow read, update, delete: if isCurrentUser(uid);
+      allow create: if isAuthenticated();
+    }
+
+    // Compatibilidad con la colección legacy "usuarios"
+    match /usuarios/{uid} {
+      allow read, update, delete: if isCurrentUser(uid);
+      allow create: if isAuthenticated();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+      allow delete: if false;
+    }
+
+    // Compatibilidad si aún existen documentos en /equipos
+    match /equipos/{equipoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.capitanUid;
+      allow delete: if false;
+    }
+
+    match /matches/{matchId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Compatibilidad si existen documentos antiguos en /partidos
+    match /partidos/{partidoId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /invitations/{invitationId} {
+      allow create, update, delete: if false;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.toUserId ||
+        request.auth.uid == resource.data.fromUserId ||
+        (authEmail() != '' && authEmail() == resource.data.invitedEmail)
+      );
+    }
+
+    match /invitaciones/{invitacionId} {
+      allow create, update, delete: if false;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.invitadoUid ||
+        request.auth.uid == resource.data.capitanUid ||
+        (authEmail() != '' && authEmail() == resource.data.invitedEmail)
+      );
+    }
+
+    match /individualRequests/{requestId} {
+      allow write: if false;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.requesterId ||
+        request.auth.uid == resource.data.captainId
+      );
+    }
+
+    match /teamJoinRequests/{requestId} {
+      allow update, delete: if false;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid == resource.data.teamOwnerId
+      );
+    }
+  }
+}
