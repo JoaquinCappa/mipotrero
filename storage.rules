@@ -5,14 +5,24 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    match /users/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+    function isValidImageUpload() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
 
-    match /teams/{teamId}/{allPaths=**} {
+    match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidImageUpload();
+    }
+
+    // Team shields are currently uploaded to teams/{uid}/teamShields/...
+    match /teams/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidImageUpload();
     }
 
     match /{allPaths=**} {

@@ -385,11 +385,6 @@ const extractPhoneFromRecord = (value) => {
   return found || "";
 };
 
-const getTeamId = (team) => {
-  if (!team || typeof team !== "object") return null;
-  return team.id || team.teamId || null;
-};
-
 const formatPhoneLink = (phone) => {
   const normalized = normalizeAnyPhone(phone);
   return normalized ? `<a href="tel:${normalized}">${normalized}</a>` : "Sin telefono";
@@ -438,9 +433,10 @@ const extractPlayersFromTeam = (team, details = {}) => {
 };
 
 const computeTeamSize = (team, details = {}, fallback = 0) => {
-  if (!team) return 0;
+  if (!team) return fallback;
   const numbers = [
     team.playersCount,
+    team.playerCount,
     team.memberCount,
     team.count,
     team.size,
@@ -457,7 +453,7 @@ const computeTeamSize = (team, details = {}, fallback = 0) => {
     team.playerIds,
     team.playersList
   ].filter((arr) => Array.isArray(arr));
-  const detailArrays = [details.memberNames, details.members].filter((arr) => Array.isArray(arr));
+  const detailArrays = [details.memberNames].filter((arr) => Array.isArray(arr));
   const arrayLengths = [...arrays, ...detailArrays].map((arr) => arr.length);
   const maxArray = arrayLengths.length ? Math.max(...arrayLengths) : 0;
   const maxNumber = numbers.length ? Math.max(...numbers) : 0;
@@ -466,34 +462,17 @@ const computeTeamSize = (team, details = {}, fallback = 0) => {
   return fallback;
 };
 
-const PLAYERS_REQUIRED_BY_MODALITY = {
-  "Futbol 5": 10,
-  "Futbol 6": 12,
-  "Futbol 7": 14,
-  "Futbol 8": 16,
-  "Futbol 9": 18,
-  "Futbol 10": 20,
-  "Futbol 11": 22
-};
-
-const getRequiredPlayers = (match) => {
-  const modalityRaw = match?.modality || match?.tipoFutbol;
-  const modality = typeof modalityRaw === "string" ? modalityRaw.trim() : "";
-  const required = PLAYERS_REQUIRED_BY_MODALITY[modality];
-  if (Number.isFinite(required) && required > 0) return required;
-  return 14;
-};
-
 const getDefaultTeamSize = () => 0;
+
+const MATCH_CAPACITY_BY_MODALITY = {
+  "Futbol 5": 10,
+  "Futbol 7": 14
+};
 
 const countConfirmedPlayers = (match) => {
   const fallback = getDefaultTeamSize(match);
-  const teamAId = getTeamId(match?.teamA);
-  const teamBId = getTeamId(match?.teamB);
-  const teamADetails = teamAId && teamDetailsCache.has(teamAId) ? teamDetailsCache.get(teamAId) : {};
-  const teamBDetails = teamBId && teamDetailsCache.has(teamBId) ? teamDetailsCache.get(teamBId) : {};
-  const teamAPlayers = match?.teamA ? computeTeamSize(match.teamA, teamADetails, fallback) : 0;
-  const teamBPlayers = match?.teamB ? computeTeamSize(match.teamB, teamBDetails, fallback) : 0;
+  const teamAPlayers = computeTeamSize(match?.teamA, {}, fallback);
+  const teamBPlayers = computeTeamSize(match?.teamB, {}, fallback);
   const individuals = Array.isArray(match?.individualPlayers) ? match.individualPlayers.length : 0;
   return teamAPlayers + teamBPlayers + individuals;
 };
@@ -501,29 +480,30 @@ const buildMatchStatus = (match) => {
   const date = match?.dateTime ? new Date(match.dateTime) : null;
   const hasValidDate = date instanceof Date && !Number.isNaN(date?.getTime());
   const hoursToMatch = hasValidDate ? (date.getTime() - Date.now()) / 36e5 : null;
-  const requiredPlayers = getRequiredPlayers(match);
   const inferredPlayers = countConfirmedPlayers(match);
   const confirmedPlayers = Math.max(
     inferredPlayers,
     Number(match?.confirmedPlayers) || 0,
     Number(match?.playerCount) || 0
   );
-  const missing = Math.max(requiredPlayers - confirmedPlayers, 0);
-  const needsAutoCancel =
-    hoursToMatch !== null &&
-    hoursToMatch <= 12 &&
-    hoursToMatch >= 0 &&
-    confirmedPlayers < requiredPlayers;
-  const isFull = confirmedPlayers >= requiredPlayers;
+  const capacity = Number(match?.maxPlayers) || MATCH_CAPACITY_BY_MODALITY[match?.modality] || null;
+  const state = String(match?.status || "open").toLowerCase();
+  const isCancelled = state === "cancelled";
+  const isCompleted = state === "completed";
+  const isFull = state === "full" || (capacity !== null && confirmedPlayers >= capacity);
+  const missing = capacity === null ? null : Math.max(capacity - confirmedPlayers, 0);
+  const isUnavailable = isCancelled || isCompleted || isFull;
   return {
     date,
     hasValidDate,
     hoursToMatch,
     confirmedPlayers,
+    capacity,
     missing,
-    needsAutoCancel,
     isFull,
-    requiredPlayers
+    isCancelled,
+    isCompleted,
+    isUnavailable
   };
 };
 
@@ -728,26 +708,6 @@ const cacheDom = () => {
   dom.adminPanel = byId("admin-panel");
   dom.adminMatches = byId("admin-matches");
   updateAdminUiState();
-};
-
-const describeAuthError = (error) => {
-  const code = (error?.code || "").toLowerCase();
-  if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
-    return "Email o contraseña incorrectos.";
-  }
-  if (code === "auth/too-many-requests") {
-    return "Demasiados intentos fallidos. Espera unos minutos o restablece tu contraseña.";
-  }
-  if (code === "auth/network-request-failed") {
-    return "No se pudo conectar. Revisa tu conexión e intenta nuevamente.";
-  }
-  if (code === "auth/user-disabled") {
-    return "Tu cuenta está deshabilitada. Contacta al administrador.";
-  }
-  if (code === "auth/invalid-email") {
-    return "Ingresa un email válido.";
-  }
-  return `No se pudo iniciar sesión (${code || "error"}).`;
 };
 const toggleAppView = (isLoggedIn) => {
   toggleHidden(dom.authContainer, isLoggedIn);
@@ -1188,6 +1148,7 @@ const subscribeAvailableMatches = () => {
         const match = { id: docSnap.id, ...docSnap.data() };
         if (isMatchExpired(match)) return;
         const status = buildMatchStatus(match);
+        if (status.isUnavailable) return;
         if (isUserAlreadyInMatch(match)) return;
         matches.push(match);
       });
@@ -1196,14 +1157,6 @@ const subscribeAvailableMatches = () => {
         const dbv = b.dateTime ? new Date(b.dateTime).getTime() : Number.MAX_SAFE_INTEGER;
         return da - dbv;
       });
-      const teamIds = [];
-      matches.forEach((match) => {
-        const idA = getTeamId(match.teamA);
-        const idB = getTeamId(match.teamB);
-        if (idA) teamIds.push(idA);
-        if (idB) teamIds.push(idB);
-      });
-      await ensureTeamDetails(teamIds);
       if (isAdminUser) {
         list.innerHTML = '<p class="info-message">Modo admin: vista de union deshabilitada (solo lectura).</p>';
         return;
@@ -1222,10 +1175,10 @@ const subscribeAvailableMatches = () => {
       list.innerHTML = matches
         .map((match) => {
           const status = buildMatchStatus(match);
-          const missingText = status.missing > 0 ? `(faltan ${status.missing})` : "(completo)";
+          const missingText = status.missing === null ? "" : status.missing > 0 ? `(faltan ${status.missing})` : "(completo)";
           const date = match.dateTime ? new Date(match.dateTime).toLocaleString() : "Fecha a confirmar";
           const location = match.location?.name ? `<p>Cancha: ${match.location.name}</p>` : "";
-          const canJoinAsTeam = !match.teamB && !status.isFull;
+          const canJoinAsTeam = !match.teamB;
           const teamControls = hasTeams && canJoinAsTeam
             ? `
                 <div class="join-controls">
@@ -1243,9 +1196,7 @@ const subscribeAvailableMatches = () => {
             typeof currentUserAge === "number"
               ? `<small class="form-hint">Tu edad: ${currentUserAge} años</small>`
               : "";
-          const individualControls = status.isFull
-            ? '<p class="info-message">Partido completo.</p>'
-            : `
+          const individualControls = `
             <div class="individual-join">
               <div class="individual-join-row">
                 <input type="text" class="individual-note" maxlength="140" placeholder="Mensaje (opcional)" />
@@ -1259,7 +1210,7 @@ const subscribeAvailableMatches = () => {
               <p>Fecha: <strong>${date}</strong></p>
               <p>Equipo A: ${match.teamA?.name || "-"} (Capitan: ${match.teamA?.captainName || "-"})</p>
               ${match.teamB ? `<p>Equipo B: ${match.teamB.name || "Equipo B"} (Capitan: ${match.teamB.captainName || "-"})</p>` : "<p>Equipo B: buscando...</p>"}
-              <p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.requiredPlayers} ${missingText}</p>
+              <p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.capacity ?? "-"} ${missingText}</p>
               ${location}
               <div class="match-join-grid">
                 ${teamControls}
@@ -1323,7 +1274,7 @@ const subscribeUserMatches = () => {
   }
   unsubscribeUserMatches = onSnapshot(
     collection(db, "matches"),
-    async (snapshot) => {
+    (snapshot) => {
       const mine = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -1344,30 +1295,22 @@ const subscribeUserMatches = () => {
         }
         return;
       }
-      const teamIds = [];
-      mine.forEach((match) => {
-        const idA = getTeamId(match.teamA);
-        const idB = getTeamId(match.teamB);
-        if (idA) teamIds.push(idA);
-        if (idB) teamIds.push(idB);
-      });
-      await ensureTeamDetails(teamIds);
       const renderStatusBlock = (status) => {
         if (!status) return "";
         const parts = [];
         if (typeof status.confirmedPlayers === "number") {
-          const missingText = status.missing > 0 ? ` (faltan ${status.missing})` : "";
-          parts.push(
-            `<p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.requiredPlayers}${missingText}</p>`
-          );
-        }
-        if (status.needsAutoCancel) {
-          parts.push(
-            `<p class="status-pending">A 12h del partido y sin ${status.requiredPlayers} jugadores: se cancela y se notifica a todos.</p>`
-          );
+            const missingText = typeof status.missing === "number" && status.missing > 0 ? ` (faltan ${status.missing})` : "";
+            parts.push(
+            `<p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.capacity ?? "-"}${missingText}</p>`
+            );
+          }
+        if (status.isCancelled) {
+          parts.push('<p class="status-pending">Partido cancelado.</p>');
+        } else if (status.isCompleted) {
+          parts.push('<p class="status-confirmed">Partido finalizado.</p>');
         } else if (status.isFull) {
           parts.push(
-            `<p class="status-confirmed">${status.requiredPlayers} jugadores listos. Avisaremos por WhatsApp para coordinar el pago.</p>`
+            '<p class="status-confirmed">Cupos completos.</p>'
           );
         }
         return parts.join("");
@@ -1526,15 +1469,17 @@ const subscribeAdminMatches = () => {
           const teamAList = buildPlayersList("Equipo A", teamAPlayers.length ? teamAPlayers : (teamADetails.memberNames || []).map((name, idx) => ({ name, phone: (teamADetails.memberPhones || [])[idx] || "" })));
           const teamBList = buildPlayersList("Equipo B", teamBPlayers.length ? teamBPlayers : (teamBDetails.memberNames || []).map((name, idx) => ({ name, phone: (teamBDetails.memberPhones || [])[idx] || "" })));
           const statusBlock = `
-            <p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.requiredPlayers} ${status.missing > 0 ? `(faltan ${status.missing})` : "(completo)"}</p>
+            <p class="form-hint">Cupos confirmados: ${status.confirmedPlayers}/${status.capacity ?? "-"} ${typeof status.missing === "number" && status.missing > 0 ? `(faltan ${status.missing})` : "(completo)"}</p>
             ${
-              status.needsAutoCancel
-                ? `<p class="status-pending">A 12h del partido y sin ${status.requiredPlayers} jugadores: se cancela y se notifica a todos.</p>`
+              status.isCancelled
+                ? '<p class="status-pending">Partido cancelado.</p>'
                 : ""
             }
             ${
-              status.isFull
-                ? `<p class="status-confirmed">${status.requiredPlayers} jugadores listos. Avisar por WhatsApp para coordinar pago.</p>`
+              status.isCompleted
+                ? '<p class="status-confirmed">Partido finalizado.</p>'
+                : status.isFull
+                ? '<p class="status-confirmed">Cupos completos.</p>'
                 : ""
             }
           `;
@@ -2276,29 +2221,18 @@ const setupAuthForms = () => {
 
   dom.loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const submitBtn = dom.loginForm?.querySelector("button[type='submit']");
-    const email = canonicalizeEmail(dom.loginEmail?.value);
+    const email = dom.loginEmail?.value?.trim();
     const password = dom.loginPassword?.value || "";
     if (!email || !password) {
       showGlobalMessage("Ingresa tu email y contrasena.", "info");
       return;
     }
     try {
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.setAttribute("aria-busy", "true");
-      }
       await signInWithEmailAndPassword(auth, email, password);
       showGlobalMessage("Sesion iniciada.", "exito");
     } catch (error) {
       console.error("Error al iniciar sesion:", error);
-      showGlobalMessage(describeAuthError(error), "error");
-    }
-    finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.removeAttribute("aria-busy");
-      }
+      showGlobalMessage("Credenciales invalidas.", "error");
     }
   });
 
@@ -2561,6 +2495,11 @@ const getMatchById = async (matchId) => {
   return { id: snap.id, ...snap.data() };
 };
 
+const getTeamId = (team) => {
+  if (!team || typeof team !== "object") return null;
+  return team.id || team.teamId || null;
+};
+
 const ensureTeamDetails = async (teamIds = []) => {
   const missingIds = teamIds.filter((id) => id && !teamDetailsCache.has(id));
   if (!missingIds.length || !db) return;
@@ -2569,11 +2508,8 @@ const ensureTeamDetails = async (teamIds = []) => {
     if (snap.exists()) {
       const data = snap.data();
       const memberPhones = Array.isArray(data.memberPhones) ? data.memberPhones.map((phone) => normalizeAnyPhone(phone)) : [];
-      const memberNames = Array.isArray(data.memberNames) ? data.memberNames.filter(Boolean) : [];
-      const members = Array.isArray(data.members) ? data.members.filter(Boolean) : [];
       teamDetailsCache.set(snap.id, {
-        memberNames: memberNames.length ? memberNames : members,
-        members,
+        memberNames: data.memberNames || [],
         memberPhones,
         captainPhone: normalizeAnyPhone(
           data.captainPhone ||
@@ -2695,6 +2631,8 @@ const setupPhoneVerification = () => {
     dom.phoneModalConfirm.disabled = true;
     try {
       await phoneConfirmationResult.confirm(code);
+      await auth.currentUser.reload().catch(() => {});
+      await auth.currentUser.getIdToken(true);
       try {
         await callApiWithRetry("/auth/phone", {
           method: "POST",
@@ -2703,7 +2641,6 @@ const setupPhoneVerification = () => {
       } catch (apiError) {
         console.error("Error al sincronizar telefono:", apiError);
       }
-      await auth.currentUser.reload().catch(() => {});
       currentUserPhone = auth.currentUser.phoneNumber || pendingPhoneNumber;
       pendingPhoneNumber = "";
       phoneConfirmationResult = null;
@@ -2804,7 +2741,9 @@ const postFirebaseConfigToServiceWorker = async (registration) => {
 const registerMessagingServiceWorker = async () => {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.register('./service-worker.js', {
+      updateViaCache: 'none'
+    });
     await postFirebaseConfigToServiceWorker(registration);
     return registration;
   } catch (error) {

@@ -10,6 +10,17 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    function onlyOwnProfileFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'posicion',
+        'descripcion',
+        'edad',
+        'age',
+        'photoUrl',
+        'updatedAt'
+      ]);
+    }
+
     function authEmail() {
       return isAuthenticated() && ('email' in request.auth.token)
         ? request.auth.token.email
@@ -18,28 +29,30 @@ service cloud.firestore {
 
     // Nueva colección de usuarios (utilizada por el frontend)
     match /users/{uid} {
-      allow read, update, delete: if isCurrentUser(uid);
-      allow create: if isAuthenticated();
+      allow read: if isCurrentUser(uid);
+      allow create: if isCurrentUser(uid);
+      allow update: if isCurrentUser(uid) && onlyOwnProfileFieldsChanged();
+      allow delete: if false;
     }
 
     // Compatibilidad con la colección legacy "usuarios"
     match /usuarios/{uid} {
-      allow read, update, delete: if isCurrentUser(uid);
-      allow create: if isAuthenticated();
+      allow read: if isCurrentUser(uid);
+      allow create: if isCurrentUser(uid);
+      allow update: if isCurrentUser(uid) && onlyOwnProfileFieldsChanged();
+      allow delete: if false;
     }
 
     match /teams/{teamId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+      allow create, update: if false;
       allow delete: if false;
     }
 
     // Compatibilidad si aún existen documentos en /equipos
     match /equipos/{equipoId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.capitanUid;
+      allow create, update: if false;
       allow delete: if false;
     }
 
@@ -81,8 +94,7 @@ service cloud.firestore {
     }
 
     match /teamJoinRequests/{requestId} {
-      allow update, delete: if false;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.userId ||
         request.auth.uid == resource.data.teamOwnerId

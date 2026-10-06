@@ -255,6 +255,14 @@ const linkPhoneNumber = async (req, res) => {
   }
 
   try {
+    const authUser = await auth.getUser(uid);
+    const verifiedAuthPhone = normalizePhoneInput(authUser.phoneNumber || '');
+    if (!verifiedAuthPhone || verifiedAuthPhone !== normalizedPhone) {
+      return res.status(400).json({
+        mensaje: 'El telefono indicado no esta verificado en Firebase Auth para esta cuenta.',
+      });
+    }
+
     const conflict = await hasPhoneConflict(normalizedPhone, uid);
     if (conflict) {
       return res.status(409).json({ mensaje: 'El numero de telefono ya esta vinculado a otra cuenta.' });

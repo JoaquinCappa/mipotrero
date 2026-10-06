@@ -237,10 +237,12 @@ const invitePlayer = async (req, res) => {
   const uid = req.user.uid;
   const teamId = String(req.body?.teamId || '').trim();
   const invitadoUid = String(req.body?.invitadoUid || '').trim();
-  const providedTeamName = req.body?.teamName;
+  const playerEmail = String(req.body?.playerEmail || '').trim();
 
-  if (!teamId || !invitadoUid) {
-    return res.status(400).json({ mensaje: 'teamId e invitadoUid son requeridos.' });
+  if (!teamId || (!invitadoUid && !playerEmail)) {
+    return res.status(400).json({
+      mensaje: 'teamId y el UID o email del jugador son requeridos.',
+    });
   }
 
   if (invitadoUid === uid) {
@@ -248,10 +250,9 @@ const invitePlayer = async (req, res) => {
   }
 
   try {
-    const [teamDoc, inviterDoc, invitedUserDoc] = await Promise.all([
+    const [teamDoc, inviterDoc] = await Promise.all([
       db.collection('teams').doc(teamId).get(),
       db.collection('users').doc(uid).get(),
-      db.collection('users').doc(invitadoUid).get()
     ]);
 
     if (!inviterDoc.exists) {
@@ -262,7 +263,19 @@ const invitePlayer = async (req, res) => {
       throw new HttpError(404, 'Equipo no encontrado.');
     }
 
-    if (!invitedUserDoc.exists) {
+    let invitedUserDoc;
+    if (invitadoUid) {
+      invitedUserDoc = await db.collection('users').doc(invitadoUid).get();
+    } else {
+      const invitedUsers = await db
+        .collection('users')
+        .where('email', '==', playerEmail)
+        .limit(1)
+        .get();
+      invitedUserDoc = invitedUsers.empty ? null : invitedUsers.docs[0];
+    }
+
+    if (!invitedUserDoc || !invitedUserDoc.exists) {
       throw new HttpError(404, 'Jugador invitado no encontrado.');
     }
 
@@ -288,7 +301,7 @@ const invitePlayer = async (req, res) => {
 
     await inviteRef.set({
       teamId,
-      teamName: providedTeamName || teamData.name,
+      teamName: teamData.name,
       toUserId: invitedUserId,
       fromUserId: uid,
       invitedEmail: invitedUserData.email,
@@ -320,6 +333,7 @@ const requestToJoinTeam = async (req, res) => {
   const teamRef = db.collection('teams').doc(teamId);
   const userRef = db.collection('users').doc(uid);
   const requestRef = db.collection('teamJoinRequests').doc(`${teamId}_${uid}`);
+  let notification = null;
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -368,12 +382,18 @@ const requestToJoinTeam = async (req, res) => {
         },
         { merge: true }
       );
+
+      notification = {
+        ownerId: teamData.ownerId,
+        teamName: teamData.name,
+        displayName,
+      };
     });
 
     try {
-      await sendPushToUser(teamData.ownerId, {
-        title: `Nueva solicitud para ${teamData.name}`,
-        body: `${displayName} quiere unirse a tu equipo.`,
+      await sendPushToUser(notification?.ownerId, {
+        title: `Nueva solicitud para ${notification?.teamName || 'tu equipo'}`,
+        body: `${notification?.displayName || 'Un jugador'} quiere unirse a tu equipo.`,
         data: { type: 'teamJoinRequest', teamId }
       });
     } catch (err) {
@@ -401,6 +421,7 @@ const respondJoinRequest = async (req, res) => {
   }
 
   const requestRef = db.collection('teamJoinRequests').doc(requestId);
+  let resolvedRequest = null;
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -410,6 +431,7 @@ const respondJoinRequest = async (req, res) => {
       }
 
       const requestData = requestDoc.data();
+      resolvedRequest = requestData;
       if (requestData.teamOwnerId !== uid) {
         throw new HttpError(403, 'No tienes permiso para responder esta solicitud.');
       }
@@ -457,10 +479,10 @@ const respondJoinRequest = async (req, res) => {
         ? 'Solicitud aceptada. El jugador ya forma parte del equipo.'
         : 'Solicitud rechazada.';
     try {
-      await sendPushToUser(requestDoc.data().userId, {
-        title: `Tu solicitud a ${requestDoc.data().teamName} fue ${action === 'accepted' ? 'aceptada' : 'rechazada'}` ,
+      await sendPushToUser(resolvedRequest?.userId, {
+        title: `Tu solicitud a ${resolvedRequest?.teamName || 'un equipo'} fue ${action === 'accepted' ? 'aceptada' : 'rechazada'}` ,
         body: 'IngresÃƒÂ¡ a Mi Potrero para ver el estado.',
-        data: { type: 'teamJoin', teamId: requestDoc.data().teamId || '' },
+        data: { type: 'teamJoin', teamId: resolvedRequest?.teamId || '' },
       });
     } catch (err) {
       console.warn('No se pudo enviar push de solicitud de equipo:', err?.message);
@@ -483,6 +505,7 @@ const respondToInvitation = async (req, res) => {
   }
 
   const inviteRef = db.collection('invitations').doc(inviteId);
+  let resolvedInvite = null;
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -492,6 +515,7 @@ const respondToInvitation = async (req, res) => {
       }
 
       const inviteData = inviteDoc.data();
+      resolvedInvite = inviteData;
       if (inviteData.toUserId !== uid) {
         throw new HttpError(403, 'No tienes permiso para responder esta invitaciÃƒÂ³n.');
       }
@@ -536,10 +560,10 @@ const respondToInvitation = async (req, res) => {
       ? '?Invitaci?n aceptada! Ya eres miembro del equipo.'
       : 'Invitaci?n rechazada.';
     try {
-      await sendPushToUser(inviteData.toUserId, {
-        title: `Invitaci?n a ${inviteData.teamName} ${accept ? 'aceptada' : 'rechazada'}` ,
+      await sendPushToUser(resolvedInvite?.toUserId, {
+        title: `Invitaci?n a ${resolvedInvite?.teamName || 'un equipo'} ${accept ? 'aceptada' : 'rechazada'}` ,
         body: accept ? 'Ya formas parte del equipo.' : 'La invitaci?n fue rechazada.',
-        data: { type: 'teamInvite', teamId: inviteData.teamId || '' },
+        data: { type: 'teamInvite', teamId: resolvedInvite?.teamId || '' },
       });
     } catch (err) {
       console.warn('No se pudo enviar push de invitaci?n:', err?.message);

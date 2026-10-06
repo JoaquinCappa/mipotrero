@@ -1,4 +1,4 @@
-const CACHE_VERSION = "2025-12-01-01";
+const CACHE_VERSION = "2025-11-26-06";
 const CACHE_NAME = `mi-potrero-static-${CACHE_VERSION}`;
 const ASSETS = [
   "./",

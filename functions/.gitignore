@@ -1,2 +1,8 @@
 node_modules/
 *.local
+.env
+.env.*
+!.env.example
+serviceAccountKey.json
+service-account*.json
+*-service-account.json

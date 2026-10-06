@@ -20,9 +20,9 @@ const sendError = (res, error, fallbackMessage) => {
 const resolveDisplayName = (userData, fallback = 'Capitan') =>
   userData?.nombre || userData?.displayName || userData?.email || fallback;
 
-const requiredPlayersByModality = {
-  'Futbol 5': 5,
-  'Futbol 7': 0,
+const modalityConfig = {
+  'Futbol 5': { playersPerTeam: 5, maxPlayers: 10 },
+  'Futbol 7': { playersPerTeam: 7, maxPlayers: 14 },
 };
 
 const PER_PLAYER_COST = 5500;
@@ -46,7 +46,7 @@ const sanitizeLocation = (incoming) => {
 };
 
 const ensureTeamHasRequiredPlayers = (teamData, modality, contextMessage) => {
-  const required = requiredPlayersByModality[modality] || null;
+  const required = modalityConfig[modality]?.playersPerTeam || null;
   if (
     required &&
     (!Array.isArray(teamData.members) || teamData.members.length < required)
@@ -56,6 +56,21 @@ const ensureTeamHasRequiredPlayers = (teamData, modality, contextMessage) => {
       `${contextMessage}. Se requieren al menos ${required} jugadores registrados para ${modality}.`
     );
   }
+};
+
+const getMatchCapacity = (matchData) =>
+  Number(matchData?.maxPlayers) || modalityConfig[matchData?.modality]?.maxPlayers || null;
+
+const getConfirmedPlayers = (matchData) => {
+  const stored = Number(matchData?.confirmedPlayers);
+  if (Number.isFinite(stored) && stored >= 0) return stored;
+
+  const teamAPlayers = Number(matchData?.teamA?.playerCount) || 0;
+  const teamBPlayers = Number(matchData?.teamB?.playerCount) || 0;
+  const individuals = Array.isArray(matchData?.individualPlayers)
+    ? matchData.individualPlayers.length
+    : 0;
+  return teamAPlayers + teamBPlayers + individuals;
 };
 
 const fetchUserTokens = async (uid) => {
@@ -131,11 +146,18 @@ const createMatch = async (req, res) => {
 
     const creatorName = resolveDisplayName(userDoc.data(), 'Capitan');
 
+    const config = modalityConfig[modality] || null;
+    const teamAPlayerCount = config
+      ? Math.min(teamData.members.length, config.playersPerTeam)
+      : teamData.members.length;
+
     await db.collection('matches').add({
       dateTime,
       modality,
       location: location || null,
       status: 'open',
+      maxPlayers: config?.maxPlayers || null,
+      confirmedPlayers: teamAPlayerCount,
       perPlayerCost: PER_PLAYER_COST,
       individualPlayers: [],
       teamA: {
@@ -143,6 +165,7 @@ const createMatch = async (req, res) => {
         name: teamData.name,
         captainId: teamData.ownerId,
         captainName: creatorName,
+        playerCount: teamAPlayerCount,
       },
       teamB: null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -230,6 +253,17 @@ const joinMatch = async (req, res) => {
         'El equipo no cumple con la cantidad minima'
       );
 
+      const config = modalityConfig[matchData.modality] || null;
+      const teamPlayerCount = config
+        ? Math.min(teamData.members.length, config.playersPerTeam)
+        : teamData.members.length;
+      const maxPlayers = getMatchCapacity(matchData);
+      const confirmedPlayers = getConfirmedPlayers(matchData);
+      if (maxPlayers && confirmedPlayers + teamPlayerCount > maxPlayers) {
+        throw new HttpError(400, 'El equipo excede los cupos disponibles del partido.');
+      }
+      const nextConfirmedPlayers = confirmedPlayers + teamPlayerCount;
+
       const userData = userDoc.exists ? userDoc.data() : {};
 
       transaction.update(matchRef, {
@@ -238,8 +272,11 @@ const joinMatch = async (req, res) => {
           name: teamData.name,
           captainId: teamData.ownerId,
           captainName: resolveDisplayName(userData, 'Jugador'),
+          playerCount: teamPlayerCount,
         },
-        status: 'open',
+        confirmedPlayers: nextConfirmedPlayers,
+        maxPlayers: maxPlayers || null,
+        status: maxPlayers && nextConfirmedPlayers >= maxPlayers ? 'full' : 'open',
       });
     });
 
@@ -280,6 +317,11 @@ const requestIndividualJoin = async (req, res) => {
     const matchData = matchDoc.data();
     if (matchData.status !== 'open') {
       throw new HttpError(400, 'El partido ya no esta disponible.');
+    }
+
+    const maxPlayers = getMatchCapacity(matchData);
+    if (maxPlayers && getConfirmedPlayers(matchData) >= maxPlayers) {
+      throw new HttpError(400, 'El partido ya completo sus cupos.');
     }
 
     if (matchData.teamA?.captainId === uid) {
@@ -410,6 +452,16 @@ const respondIndividualJoin = async (req, res) => {
         if (!matchDoc.exists) {
           throw new HttpError(404, 'Partido no encontrado.');
         }
+        const matchData = matchDoc.data();
+        if (matchData.status !== 'open') {
+          throw new HttpError(400, 'El partido ya no esta disponible.');
+        }
+        const maxPlayers = getMatchCapacity(matchData);
+        const confirmedPlayers = getConfirmedPlayers(matchData);
+        if (maxPlayers && confirmedPlayers >= maxPlayers) {
+          throw new HttpError(400, 'El partido ya completo sus cupos.');
+        }
+        const nextConfirmedPlayers = confirmedPlayers + 1;
         const playerRecord = {
           userId: requestData.requesterId,
           name: requestData.requesterName,
@@ -418,6 +470,9 @@ const respondIndividualJoin = async (req, res) => {
         };
         transaction.update(matchRef, {
           individualPlayers: admin.firestore.FieldValue.arrayUnion(playerRecord),
+          confirmedPlayers: nextConfirmedPlayers,
+          maxPlayers: maxPlayers || null,
+          status: maxPlayers && nextConfirmedPlayers >= maxPlayers ? 'full' : 'open',
         });
       }
     });
